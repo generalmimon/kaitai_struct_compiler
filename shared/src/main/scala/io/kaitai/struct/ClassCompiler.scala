@@ -6,6 +6,7 @@ import io.kaitai.struct.datatype._
 import io.kaitai.struct.exprlang.Ast
 import io.kaitai.struct.format.{AttrSpec, _}
 import io.kaitai.struct.languages.components.{ExtraAttrs, LanguageCompiler, LanguageCompilerStatic}
+import io.kaitai.struct.precompile.{CalculateSeqSizes, InternalCompilerError}
 
 class ClassCompiler(
   classSpecs: ClassSpecs,
@@ -288,13 +289,35 @@ class ClassCompiler(
     * @param defEndian default endianness
     */
   def compileSeq(seq: List[AttrSpec], defEndian: Option[FixedEndian]) = {
-    var wasUnaligned = false
+    var bitPos = 0 // NOTE: can be assumed only if `seq` of a user type is byte-aligned
+    var wasUnalignedBitEndian: Option[BitEndianness] = None
     seq.foreach { (attr) =>
-      val nowUnaligned = isUnalignedBits(attr.dataType)
-      if (wasUnaligned && !nowUnaligned)
-        lang.alignToByte(lang.normalIO)
+      val nowUnalignedBitEndian = getUnalignedBitEndian(attr.dataType)
+      val bitSizeSpec = CalculateSeqSizes.dataTypeBitsSize(attr.dataType)
+      (wasUnalignedBitEndian, nowUnalignedBitEndian) match {
+        case (Some(_), None) =>
+          lang.alignToByte(lang.normalIO)
+        case (Some(a), Some(b)) =>
+          if (a != b && (bitPos % 8) != 0)
+            throw new YAMLParseException(
+              s"cannot use `${
+                if(b == LittleBitEndian) "le" else "be"
+              }` bit-sized integer right after `${
+                if(a == LittleBitEndian) "le" else "be"
+              }` bit stream if not on a byte boundary", attr.path ++ List("type"))
+        case _ =>
+      }
       lang.attrParse(attr, attr.id, defEndian)
-      wasUnaligned = nowUnaligned
+      wasUnalignedBitEndian = nowUnalignedBitEndian
+      bitSizeSpec match {
+        case FixedSized(n) =>
+          bitPos += n
+        case DynamicSized =>
+          // dynamic sized currently means byte-aligned, but may change in the future
+          bitPos = 0
+        case other =>
+          throw InternalCompilerError(s"internal compiler error: bitSizeSpec=$other for `${attr.id.humanReadable}`")
+      }
     }
   }
 
@@ -360,11 +383,12 @@ class ClassCompiler(
   def compileEnum(curClass: ClassSpec, enumColl: EnumSpec): Unit =
     lang.enumDeclaration(curClass.name, enumColl.name.last, enumColl.sortedSeq)
 
-  def isUnalignedBits(dt: DataType): Boolean =
+  def getUnalignedBitEndian(dt: DataType): Option[BitEndianness] =
     dt match {
-      case _: BitsType | _: BitsType1 => true
-      case et: EnumType => isUnalignedBits(et.basedOn)
-      case _ => false
+      case BitsType(_, bitEndian) => Some(bitEndian)
+      case BitsType1(bitEndian) => Some(bitEndian)
+      case et: EnumType => getUnalignedBitEndian(et.basedOn)
+      case _ => None
     }
 
   def compileClassDoc(curClass: ClassSpec) = {

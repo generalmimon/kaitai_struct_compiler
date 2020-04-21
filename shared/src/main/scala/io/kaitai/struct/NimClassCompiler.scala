@@ -72,7 +72,7 @@ class NimClassCompiler(
   override def compileSeq(seq: List[AttrSpec], defEndian: Option[FixedEndian]) = {
     var wasUnaligned = false
     seq.foreach { (attr) =>
-      val nowUnaligned = isUnalignedBits(attr.dataType)
+      val nowUnaligned = getUnalignedBitEndian(attr.dataType) != None
       if (wasUnaligned && !nowUnaligned)
         lang.alignToByte(lang.normalIO)
       if (!attr.doc.isEmpty)
@@ -153,7 +153,7 @@ class NimClassCompiler(
   def compileTypesRec(curClass: ClassSpec): Unit = {
     curClass.types.foreach { case (_, subClass) => compileTypes(subClass) }
   }
-  
+
 //  def compileEnumConstants(curClass: ClassSpec): Unit = {
 //    provider.nowClass = curClass
 //    curClass.enums.foreach { case(_, enumColl) => {
@@ -203,4 +203,3 @@ class NimClassCompiler(
   }
 
 }
-
