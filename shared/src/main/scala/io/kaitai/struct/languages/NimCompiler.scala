@@ -556,7 +556,7 @@ object NimCompiler extends LanguageCompilerStatic
       case _: BytesType => "seq[byte]"
 
       case KaitaiStructType | CalcKaitaiStructType(_) => "KaitaiStruct"
-      case KaitaiStreamType | OwnedKaitaiStreamType => "KaitaiStream"
+      case KaitaiStreamType(_) | OwnedKaitaiStreamType => "KaitaiStream"
 
       case t: UserType => namespaced(t.classSpec match {
         case Some(cs) => cs.name

@@ -1160,7 +1160,7 @@ object CppCompiler extends LanguageCompilerStatic
         case RawPointers => s"$kstreamName*"
         case UniqueAndRawPointers => s"std::unique_ptr<$kstreamName>"
       }
-      case KaitaiStreamType => s"$kstreamName*"
+      case KaitaiStreamType(_) => s"$kstreamName*"
       case KaitaiStructType => config.pointers match {
         case RawPointers => s"$kstructName*"
         case SharedPointers => s"std::shared_ptr<$kstructName>"

@@ -653,7 +653,7 @@ object CSharpCompiler extends LanguageCompilerStatic
 
       case AnyType => "object"
       case KaitaiStructType | CalcKaitaiStructType(_) => kstructName
-      case KaitaiStreamType | OwnedKaitaiStreamType => kstreamName
+      case KaitaiStreamType(_) | OwnedKaitaiStreamType => kstreamName
 
       case t: UserType => types2class(t.name)
       case EnumType(name, _) => types2class(name)
